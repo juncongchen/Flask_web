@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <link rel="icon" href="../static/images/logo.png" type="image/x-coin">
+    <title>监控系统</title>
+
+    <!-- 引入 echarts.js -->
+    <script src="http://libs.baidu.com/jquery/1.7.2/jquery.min.js"></script>
+    <!-- 引入jquery.js -->
+    <script src="https://cdn.bootcss.com/echarts/4.1.0.rc2/echarts.min.js"></script>
+
+</head>
+
+<body>
+
+<div style="margin: 20px">
+    <h2><img src="../static/images/logo.png"> 运维监控系统</h2>
+</div>
+
+<div style="width: 1000px;height:50px;margin:0 auto ">
+    <span>
+        主机：<select id="host" style="width: 200px;margin-right: 20px"></select>
+        指标：<select id="metric" style="width: 150px;margin-right: 20px"></select>
+        时间范围：最近<input id="time" type="text" style="width: 30px;margin: 10px">小时
+        <button id="query" style="margin-right: 30px;margin-left: 30px">查询</button>
+        每<select id="ts" style="margin: 5px">
+            <option value="0">--</option>
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="30">30</option>
+            <option value="60">60</option>
+        </select>秒刷新
+    </span>
+</div>
+
+<div style="width: 1000px;height:50px;margin:0 auto ">
+    <h3 id="title"></h3>
+</div>
+
+<!-- 为ECharts准备一个具备大小（宽高）的Dom -->
+<div id="main" style="width: 1000px;height:500px;margin: 0 auto;"></div>
+
+
+<div style="width: 1000px;height:50px;margin:0 auto;" >
+    <div id="title_2" style="width: 1000px;height:50px;margin:0 auto;display: none " >
+        <h3 id="title_2h"></h3>
+    </div>
+    <div id="main_2" style="width: 1000px;height:500px;margin: 0 auto;display: none" ></div>
+</div>
+
+<script type="text/javascript">
+
+    var myChart = echarts.init(document.getElementById('main'));
+    var myChart2 = echarts.init(document.getElementById('main_2'));
+    var host = document.getElementById('host').value;
+    var metric = document.getElementById('metric').value;
+    var time = document.getElementById('time').value;
+    var select = document.getElementById('ts');
+
+    var app = {
+        time:[],
+        legend:[],
+        value:{},
+        title:'',
+        unit:''
+    };
+
+    // 发送ajax请求，从后台获取json数据
+    $(document).ready(function () {
+       getData();
+       getHost();
+       getMetric();
+    });
+
+    var button = document.getElementById('query');
+
+    button.onclick= function(){
+        host = document.getElementById('host').value;
+        metric = document.getElementById('metric').value;
+        time = document.getElementById('time').value;
+        console.log(host);
+        console.log(time);
+        console.log(metric);
+        getData();
+    }
+
+    function getHost() {
+        $.ajax({
+            url:'/gethost',
+            data:{},
+            type:'GET',
+            async:false,
+            dataType:'json',
+            success:function(data) {
+                var host = document.getElementById("host");
+                for (var i = 0;i<data.length;i++){
+                    host.add(new Option(data[i],data[i]));
+                }
+            },
+            error:function (msg) {
+                console.log(msg);
+                alert('系统发生错误');
+            }
+        })
+    }
+
+    function getMetric() {
+        $.ajax({
+            url:'/getmetric',
+            data:{},
+            type:'GET',
+            async:false,
+            dataType:'json',
+            success:function(data) {
+                var host = document.getElementById("metric");
+                for (var i = 0;i<data.length;i++){
+                    host.add(new Option(data[i],data[i]));
+                }
+            },
+            error:function (msg) {
+                console.log(msg);
+                alert('系统发生错误');
+            }
+        })
+    }
+
+    function getData() {
+        console.log('getdata');
+         $.ajax({
+            url:'/query',
+            data:{'host':host,'metric':metric,'time':time},
+            type:'POST',
+            async:false,
+            dataType:'json',
+            success:function(data) {
+                app.time = data.time;
+                app.legend = data.legend;
+                app.value = data.value;
+                app.title = data.title;
+                app.unit = data.unit;
+                document.getElementById("title").innerHTML= app.title;
+                console.log(app.legend);
+                myChart.setOption({
+                    toolbox: {
+                        feature: {
+                            dataZoom: {
+                                yAxisIndex: 'none'
+                            },
+                            restore: {},
+                            saveAsImage: {}
+                        }
+                    },
+                    grid: {
+                        left: '3%',
+                        right: '4%',
+                        bottom: '3%',
+                        containLabel: true
+                    },
+                    xAxis : [
+                        {
+                            name: "时间",
+                            type : 'category',
+                            boundaryGap : false,
+                            data : app.time
+                        }
+                    ],
+                    yAxis : [
+                        {
+                            name: app.unit,
+                            type : 'value'
+                        }
+                    ],
+                    tooltip: {
+                        trigger: 'axis',
+                        position: function (pt) {
+                            return [pt[0], '10%'];
+                        }
+                    },
+                },true);
+
+                if(metric=="cpu"){
+                    myChart.setOption({
+                        legend: {
+                        data:['user', 'nice', 'system', 'irq','softirq', 'iowait', 'idle', 'stealstolen']
+                        },
+                        series : [
+                            {
+                                name:'user',
+                                type:'line',
+                                symbol: 'none',
+                                stack: '总量',
+                                color: '#FF6666',
+                                areaStyle: {color:'#FF6666'},
+                                data:app.value['user'],
+                            },
+                            {
+                                name:'nice',
+                                type:'line',
+                                symbol: 'none',
+                                stack: '总量',
+                                color: '#FFCC22',
+                                areaStyle: {color:'#FFCC22'},
+                                data:app.value['nice'],
+                            },
+                            {
+                                name:'system',
+                                type:'line',
+                                symbol: 'none',
+                                stack: '总量',
+                                color: '#33CCFF',
+                                areaStyle: {color:'#33CCFF'},
+                                data:app.value['system'],
+                            },
+                            {
+                                name:'irq',
+                                type:'line',
+                                symbol: 'none',
+                                stack: '总量',
+                                color: '#FF8800',
+                                areaStyle: {color:'#FF8800'},
+                                data:app.value['irq'],
+                            },
+                            {
+                                name:'softirq',
+                                type:'line',
+                                symbol: 'none',
+                                stack: '总量',
+                                color: '#B94FFF',
+                                areaStyle: {color:'#B94FFF'},
+                                data:app.value['softirq'],
+                            },
+                            {
+                                name:'iowait',
+                                type:'line',
+                                symbol: 'none',
+                                stack: '总量',
+                                color: '#0099CC',
+                                areaStyle: {color:'#0099CC'},
+                                data:app.value['iowait'],
+                            },
+                            {
+                                name:'idle',
+                                type:'line',
+                                symbol: 'none',
+                                stack: '总量',
+                                color: '#99CC66',
+                                areaStyle: {color:'#99CC66'},
+                                data:app.value['idle'],
+                            },
+                            {
+                                name:'stealstolen',
+                                type:'line',
+                                symbol: 'none',
+                                stack: '总量',
+                                color: '#888888',
+                                areaStyle: {color:'#888888'},
+                                data:app.value['stealstolen'],
+                            }
+                        ]
+                    })
+                }
+
+                if(metric=="mem"){
+                    myChart.setOption({
+                        legend: {
+                        data:['MemTotal', 'Used', 'Buffers', 'Cached','MemFree']
+                        },
+                        series : [
+                            {
+                                name:'Used',
+                                type:'line',
+                                symbol: 'none',
+                                stack: '总量',
+                                color: '#FF6666',
+                                areaStyle: {color:'#FF6666'},
+                                data:app.value['Used'],
+                            },
+                            {
+                                name:'Buffers',
+                                type:'line',
+                                symbol: 'none',
+                                stack: '总量',
+                                color: '#FFCC22',
+                                areaStyle: {color:'#FFCC22'},
+                                data:app.value['Buffers'],
+                            },
+                            {
+                                name:'Cached',
+                                type:'line',
+                                symbol: 'none',
+                                stack: '总量',
+                                color: '#33CCFF',
+                                areaStyle: {color:'#33CCFF'},
+                                data:app.value['Cached'],
+                            },
+                            {
+                                name:'MemFree',
+                                type:'line',
+                                symbol: 'none',
+                                stack: '总量',
+                                color: '#99CC66',
+                                areaStyle: {color:'#99CC66'},
+                                data:app.value['MemFree'],
+                            },
+                            {
+                                name:'MemTotal',
+                                type:'line',
+                                symbol: 'none',
+                                color: '#888888',
+                                data:app.value['MemTotal'],
+                            }
+                        ]
+                    });
+                    document.getElementById("title_2").style.display="inline";
+                    document.getElementById("main_2").style.display="inline";
+                    document.getElementById("title_2h").innerHTML="mem-Active、Inactive";
+                    myChart2.setOption({
+                        tooltip: {
+                            trigger: 'axis'
+                        },
+                        toolbox: {
+                            feature: {
+                                dataZoom: {
+                                    yAxisIndex: 'none'
+                                },
+                                restore: {},
+                                saveAsImage: {}
+                            }
+                        },
+                        grid: {
+                            left: '3%',
+                            right: '4%',
+                            bottom: '3%',
+                            containLabel: true
+                        },
+                        xAxis : [
+                            {
+                                name: "时间",
+                                type : 'category',
+                                boundaryGap : false,
+                                data : app.time
+                            }
+                        ],
+                        yAxis : [
+                            {
+                                name: app.unit,
+                                type : 'value'
+                            }
+                        ],
+                        legend: {
+                            data:['Active', 'Inactive']
+                        },
+                        series : [
+                            {
+                                name:'Active',
+                                type:'line',
+                                symbol: 'none',
+                                color: '#FF6666',
+                                areaStyle: {color:'#FF6666'},
+                                data:app.value['Active'],
+                            },
+                            {
+                                name:'Inactive',
+                                type:'line',
+                                symbol: 'none',
+                                color: '#888888',
+                                areaStyle: {color:'#888888'},
+                                data:app.value['Inactive'],
+                            },
+                        ],
+                    },true);
+                };
+
+            },
+            error:function (msg) {
+                console.log(msg);
+                alert('系统发生错误');
+            }
+        })
+    };
+
+
+    var timer;
+    select.onchange=function () {
+        var index=select.selectedIndex;
+        var ts = select.options[index].value;
+        if(ts!=0){
+            console.log('change');
+            timer=setInterval("getData()",ts*1000);
+        }else {
+            clearInterval(timer);
+        }
+
+    };
+
+</script>
+</body>
+</html>
+
