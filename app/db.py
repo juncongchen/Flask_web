@@ -1,14 +1,14 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
 import json
-import MySQLdb
+import pymysql
 import datetime
 from app import app
 from flask import request
 
 # 建立数据库连接，使用cursor()方法获取操作游标
-db = MySQLdb.connect("localhost", "root", "123456", "monitor")
-# db = MySQLdb.connect("localhost", "root", "faizaq1@WSXcde3", "monitor")
+db = pymysql.connect("localhost", "root", "123456", "monitor")
+# db = pymysql.connect("localhost", "root", "faizaq1@WSXcde3", "monitor")
 cursor = db.cursor()
 
 @app.route('/query', methods=['GET', 'POST'])
